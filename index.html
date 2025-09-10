@@ -1,57 +1,71 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DID Anchor dApp · Base Sepolia</title>
-  <style>
-    :root{--bg:#0b0d10;--card:#141820;--muted:#8a94a7}
-    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",sans-serif;background:var(--bg);color:#e5ebf5}
-    .wrap{max-width:900px;margin:0 auto;padding:28px}.card{background:#141820;border:1px solid #1f2430;border-radius:16px;padding:18px 18px 22px}
-    h1{margin:0 0 12px;font-size:22px}.muted{color:var(--muted)}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    input[type="text"],input[type="file"]{width:100%;background:#0f131a;border:1px solid #202634;border-radius:12px;padding:12px 14px;color:#e5ebf5}
-    .btn{border:1px solid #2c3545;background:#101521;color:#e5ebf5;border-radius:12px;padding:12px 14px;font-weight:600;cursor:pointer}
-    .btn.primary{background:linear-gradient(90deg,#22d3ee,#a78bfa);border:none}
-    .log{background:#0f131a;border:1px dashed #293248;border-radius:12px;padding:12px;min-height:90px;white-space:pre-wrap}
-    .kvs{display:grid;grid-template-columns:160px 1fr;gap:8px;font-size:13px}
-  </style>
-  <!-- Ethers v6 (UMD) -->
-  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js" crossorigin="anonymous"></script>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DID Anchor dApp · Base Sepolia (Phantom-first)</title>
+<style>
+  :root{--bg:#0b0d10;--card:#141820;--muted:#8a94a7}
+  *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",sans-serif;background:var(--bg);color:#e5ebf5}
+  .wrap{max-width:900px;margin:0 auto;padding:28px}
+  .card{background:#141820;border:1px solid #1f2430;border-radius:16px;padding:18px}
+  h1{margin:0 0 12px;font-size:22px}.muted{color:var(--muted)}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  input[type=text],input[type=file]{width:100%;background:#0f131a;border:1px solid #202634;border-radius:12px;padding:12px 14px;color:#e5ebf5}
+  .btn{border:1px solid #2c3545;background:#101521;color:#e5ebf5;border-radius:12px;padding:12px 14px;font-weight:600;cursor:pointer}
+  .btn.primary{background:linear-gradient(90deg,#22d3ee,#a78bfa);border:none}
+  .log{background:#0f131a;border:1px dashed #293248;border-radius:12px;padding:12px;min-height:120px;white-space:pre-wrap}
+  .kvs{display:grid;grid-template-columns:160px 1fr;gap:8px;font-size:13px}
+  a.link{color:#8dd6ff;text-decoration:none}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
 <div class="wrap"><div class="card">
   <h1>DID Anchor dApp <span style="font-size:12px;color:#9fb3c8">Base Sepolia</span></h1>
-  <p class="muted">Подключи Phantom/MetaMask, загрузи whitepaper (.pdf/.docx/.txt), мы посчитаем <span class="mono">keccak256</span>, зальём в IPFS (web3.storage) и вызовем <span class="mono">anchor(docHash,fileCID,tokenURI)</span>.</p>
+  <p class="muted">
+    Этот dApp приоритетно подключает <b>Phantom (EVM)</b>, вычисляет <span class="mono">keccak256(file)</span>,
+    загружает файл и metadata в IPFS (web3.storage) и вызывает на контракте <span class="mono">anchor(docHash, fileCID, tokenURI)</span>.
+  </p>
 
-  <h3>1) Кошелёк</h3>
-  <div class="row">
-    <button id="btnConnect" class="btn primary">Подключить кошелёк</button>
-    <button id="btnSwitch"  class="btn">Переключить сеть → Base Sepolia</button>
+  <h3>1) Подключение кошелька</h3>
+  <div class="row" style="margin-bottom:10px">
+    <button id="btnConnectPhantom" class="btn primary">Подключить Phantom (EVM)</button>
+    <button id="btnConnectAny" class="btn">Подключить любой EVM-кошелёк</button>
   </div>
-  <div id="who" class="kvs" style="margin-top:10px;display:none">
+  <div class="row" style="margin-bottom:14px">
+    <button id="btnSwitch" class="btn">Переключить сеть → Base Sepolia</button>
+    <button id="btnClear" class="btn">Очистить лог</button>
+  </div>
+  <div id="who" class="kvs" style="display:none;margin-bottom:10px">
     <div>Адрес</div><div class="mono" id="addr">—</div>
     <div>Сеть</div><div class="mono" id="net">—</div>
   </div>
+  <div class="muted" style="font-size:12px;margin-bottom:14px">
+    Если Phantom не видится: в настройках Phantom включите <b>Settings → Developer → Enable Ethereum / Multi-chain</b>, затем перезапустите вкладку. 
+    При конфликте с MetaMask временно отключите MetaMask на этой странице (chrome://extensions) и попробуйте снова.
+  </div>
 
   <h3>2) IPFS токен (web3.storage)</h3>
-  <input type="text" id="w3stoken" placeholder="Вставьте Web3.Storage API Token" />
+  <input type="text" id="w3stoken" placeholder="Вставьте Web3.Storage API Token"/>
 
-  <h3>3) Данные whitepaper</h3>
+  <h3>3) Файл и данные</h3>
   <div class="row" style="margin-bottom:10px">
-    <input type="text" id="project" placeholder="Название проекта" />
-    <input type="file" id="file" accept=".pdf,.txt,.md,.doc,.docx" />
+    <input type="text" id="project" placeholder="Название проекта (в NFT)"/>
+    <input type="file" id="file" accept=".pdf,.txt,.md,.doc,.docx"/>
   </div>
   <div class="row" style="margin-bottom:8px">
     <button id="btnGo" class="btn primary">⛓️ Anchor & Mint</button>
-    <button id="btnClear" class="btn">Очистить лог</button>
+    <a id="basescan" class="btn" target="_blank" rel="noopener">Basescan</a>
   </div>
 
   <h3>Лог</h3>
   <div id="log" class="log"></div>
 
   <div style="margin-top:10px;color:#9fb3c8;font-size:12px">
-    Контракт: <span class="mono">0x652Aec14a474dEb389574955d234C742D1936bE5</span>
+    Контракт: <span class="mono" id="caddr">0x652Aec14a474dEb389574955d234C742D1936bE5</span> ·
+    Сеть: <span class="mono">Base Sepolia (84532)</span> ·
+    Фаусет: <a class="link" href="https://www.alchemy.com/faucets/base-sepolia" target="_blank">Alchemy Faucet</a>
   </div>
 </div></div>
 
@@ -62,74 +76,112 @@
     chainId: "0x14A34", // 84532
     chainName: "Base Sepolia",
     nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-    rpcUrls: ["https://sepolia.base.org"], // при желании добавьте свой Alchemy
+    rpcUrls: [
+      "https://sepolia.base.org",
+      "https://base-sepolia.g.alchemy.com/v2/demo"
+    ],
     blockExplorerUrls: ["https://sepolia.basescan.org"]
   };
   const ABI = [
     "function anchor(bytes32 docHash, string fileCID, string tokenURI) external returns (uint256)",
     "function tokenCounter() view returns (uint256)"
   ];
-  const log = (m)=>{ const el=document.getElementById('log'); el.textContent+=(m+"\n"); el.scrollTop=el.scrollHeight; };
-  const setKV=(k,v)=>document.getElementById(k).textContent=v;
 
-  function injected(){
-    if (window.phantom && window.phantom.ethereum) return window.phantom.ethereum;
-    if (window.ethereum) return window.ethereum;
-    return null;
+  const $ = (id)=>document.getElementById(id);
+  const log = (m)=>{ const el=$("log"); el.textContent+=(m+"\n"); el.scrollTop=el.scrollHeight; };
+  const setKV=(k,v)=>$(k).textContent=v;
+  $("basescan").href = "https://sepolia.basescan.org/address/"+CONTRACT_ADDRESS;
+
+  // ---------- helpers ----------
+  const getPhantomEvm = () => (window.phantom && window.phantom.ethereum) ? window.phantom.ethereum : null;
+  const getAnyInjected = () => window.ethereum || null; // MetaMask/Rabby/OKX…
+
+  async function ensureBaseSepolia(provider){
+    try {
+      await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: BASE_SEPOLIA.chainId }] });
+    } catch (e) {
+      if (e && (e.code === 4902 || /Unrecognized/i.test(String(e.message||"")))) {
+        await provider.request({ method: "wallet_addEthereumChain", params: [BASE_SEPOLIA] });
+      } else { throw e; }
+    }
   }
-  let provider, ethersProvider, signer, account;
 
-  async function connect(){
-    provider = injected();
-    if(!provider){ alert("Установите Phantom (EVM) или MetaMask"); return; }
+  async function connectWith(provider, label){
     const accs = await provider.request({ method: "eth_requestAccounts" });
-    account = accs[0];
-    ethersProvider = new ethers.BrowserProvider(provider);
-    signer = await ethersProvider.getSigner();
+    const account = accs?.[0];
+    if(!account) throw new Error(label + ": кошелёк не выдал адрес");
+
+    const ethersProvider = new ethers.BrowserProvider(provider);
+    const signer = await ethersProvider.getSigner();
     const net = await ethersProvider.getNetwork();
+
     setKV("addr", account);
     setKV("net", `${net.name} (${Number(net.chainId)})`);
-    document.getElementById("who").style.display="grid";
-    log("✓ Кошелёк: "+account);
+    $("who").style.display = "grid";
+    log(`✓ Подключено через ${label}: ${account}`);
+
+    return { account, signer, ethersProvider, provider };
   }
 
-  async function switchToBase(){
-    provider = injected();
-    if(!provider){ alert("Нет провайдера"); return; }
+  let ctx = null; // {account, signer, provider}
+
+  // ---------- actions ----------
+  $("btnConnectPhantom").onclick = async () => {
     try {
-      await provider.request({ method:"wallet_switchEthereumChain", params:[{ chainId: BASE_SEPOLIA.chainId }] });
-    } catch(e) {
-      if (e.code===4902) await provider.request({ method:"wallet_addEthereumChain", params:[BASE_SEPOLIA] });
-      else throw e;
-    }
-    const net = await (new ethers.BrowserProvider(provider)).getNetwork();
-    setKV("net", `${net.name} (${Number(net.chainId)})`);
-    log("✓ Сеть: Base Sepolia");
-  }
+      const ph = getPhantomEvm();
+      if (!ph) throw new Error("Phantom EVM не найден. Включите в Phantom: Settings → Developer → Enable Ethereum / Multi-chain, затем перезапустите вкладку.");
+      ctx = await connectWith(ph, "Phantom (EVM)");
+    } catch (e) { console.error(e); log("❌ "+(e.message||e)); alert(e.message||e); }
+  };
+
+  $("btnConnectAny").onclick = async () => {
+    try {
+      const inj = getAnyInjected();
+      if (!inj) throw new Error("Injected EVM провайдер не найден. Установите MetaMask/Phantom (EVM).");
+      ctx = await connectWith(inj, "Injected (EIP-1193)");
+    } catch (e) { console.error(e); log("❌ "+(e.message||e)); alert(e.message||e); }
+  };
+
+  $("btnSwitch").onclick = async () => {
+    try {
+      if (!ctx?.provider) throw new Error("Сначала подключите кошелёк.");
+      await ensureBaseSepolia(ctx.provider);
+      const net = await (new ethers.BrowserProvider(ctx.provider)).getNetwork();
+      setKV("net", `${net.name} (${Number(net.chainId)})`);
+      log("✓ Сеть переключена на Base Sepolia");
+    } catch (e) { console.error(e); log("❌ "+(e.message||e)); alert(e.message||e); }
+  };
 
   async function uploadWeb3Storage(token, fileOrBlob){
     if(!token) throw new Error("Укажите Web3.Storage token");
-    const res = await fetch("https://api.web3.storage/upload", { method:"POST", headers:{ Authorization:`Bearer ${token}` }, body:fileOrBlob });
+    const res = await fetch("https://api.web3.storage/upload", {
+      method:"POST", headers:{ Authorization:`Bearer ${token}` }, body:fileOrBlob
+    });
     if(!res.ok) throw new Error("Web3.Storage error: "+res.status+" "+res.statusText);
     const js = await res.json();
     return js.cid;
   }
 
-  async function run(){
+  $("btnGo").onclick = async () => {
     try{
-      if(!signer) await connect();
-      const net = await (new ethers.BrowserProvider(injected())).getNetwork();
-      if(Number(net.chainId)!==84532) await switchToBase();
+      if (!ctx?.signer) {
+        // пытаемся автоматически подключить Phantom, иначе — любой EVM
+        const ph = getPhantomEvm();
+        ctx = ph ? await connectWith(ph, "Phantom (EVM)") : await connectWith(getAnyInjected(), "Injected (EIP-1193)");
+      }
+      await ensureBaseSepolia(ctx.provider);
 
-      const f = document.getElementById("file").files[0];
-      const name = (document.getElementById("project").value || "Whitepaper").trim();
-      const token = document.getElementById("w3stoken").value.trim();
-      if(!f){ alert("Выберите файл"); return; }
+      const f = $("file").files[0];
+      const name = ($("project").value || "Whitepaper").trim();
+      const token = $("w3stoken").value.trim();
+      if(!f) throw new Error("Выберите файл");
 
+      // keccak256(file)
       const buf = new Uint8Array(await f.arrayBuffer());
       const docHash = ethers.keccak256(buf);
       log("🔒 docHash: "+docHash);
 
+      // IPFS
       const fileCID = await uploadWeb3Storage(token, f);
       log("📄 File CID: "+fileCID);
 
@@ -146,23 +198,27 @@
       const tokenURI = `ipfs://${metaCID}`;
       log("🧾 Metadata CID: "+metaCID+"\n🔗 tokenURI: "+tokenURI);
 
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+      // контракт
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, ctx.signer);
       const tx = await contract.anchor(docHash, fileCID, tokenURI);
+      $("basescan").href = "https://sepolia.basescan.org/tx/"+tx.hash;
       log("⏱️ tx: "+tx.hash);
       const rcpt = await tx.wait();
       const tid = (await contract.tokenCounter()).toString();
       log("✅ Подтверждено в блоке "+rcpt.blockNumber+"\n🎨 tokenId: "+tid);
 
-      const did = { id:`did:ethr:${account}#whitepaper`, type:"DocumentAnchor",
+      const did = { id:`did:ethr:${ctx.account}#whitepaper`, type:"DocumentAnchor",
         serviceEndpoint:{ docHash, fileCID:`ipfs://${fileCID}`, nftContract:CONTRACT_ADDRESS, tokenId:tid } };
       log("\n👉 DID service entry:\n"+JSON.stringify(did,null,2));
-    }catch(e){ console.error(e); log("❌ "+(e.message||e)); alert(e.message||e); }
-  }
+    } catch (e) { console.error(e); log("❌ "+(e.message||e)); alert(e.message||e); }
+  };
 
-  document.getElementById("btnConnect").onclick = connect;
-  document.getElementById("btnSwitch").onclick  = switchToBase;
-  document.getElementById("btnGo").onclick      = run;
-  document.getElementById("btnClear").onclick   = ()=>{ document.getElementById("log").textContent=""; };
+  $("btnClear").onclick = ()=>{ $("log").textContent=""; };
+
+  // Подсказка, если обнаружен Phantom без EVM
+  if (window.phantom && !window.phantom.ethereum) {
+    log("ℹ️ Найден Phantom (Solana-only). Включите EVM: Settings → Developer → Enable Ethereum / Multi-chain. Затем перезапустите вкладку.");
+  }
 })();
 </script>
 </body>
