@@ -6,10 +6,12 @@
 <title>DID Anchor dApp · Base Sepolia · Local IPFS + QR/Browser</title>
 <style>
   :root{--bg:#0b0d10;--card:#141820;--muted:#8a94a7}
-  *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",sans-serif;background:var(--bg);color:#e5ebf5}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",sans-serif;background:var(--bg);color:#e5ebf5}
   .wrap{max-width:980px;margin:0 auto;padding:28px}
   .card{background:#141820;border:1px solid #1f2430;border-radius:16px;padding:18px}
-  h1{margin:0 0 12px;font-size:22px}.muted{color:#8a94a7}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+  h1{margin:0 0 12px;font-size:22px}
+  .muted{color:#8a94a7}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   input[type=text],input[type=number],input[type=file],select{width:100%;background:#0f131a;border:1px solid #202634;border-radius:12px;padding:12px 14px;color:#e5ebf5}
   .btn{border:1px solid #2c3545;background:#101521;color:#e5ebf5;border-radius:12px;padding:12px 14px;font-weight:600;cursor:pointer}
@@ -22,15 +24,20 @@
 </style>
 <!-- ethers v6 -->
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js" crossorigin="anonymous"></script>
-<!-- локальный WalletConnect UMD -->
+<!-- попытаемся загрузить локальный WalletConnect UMD; при клике QR сделаем и CDN-фолбэк -->
 <script src="/wc/index.umd.js" defer></script>
 </head>
 <body>
 <div class="wrap"><div class="card">
   <h1>DID Anchor dApp <span style="font-size:12px;color:#9fb3c8">Base Sepolia · Local IPFS</span></h1>
-  <p class="muted">Подключи <b>Phantom/MetaMask (браузер)</b> или <b>QR (WalletConnect)</b>. DApp считает <span class="mono">keccak256(file)</span>, загружает файл+metadata в <b>локальный IPFS</b> (Kubo) и вызывает <span class="mono">anchor</span> на контракте.</p>
+  <p class="muted">
+    Подключи <b>Phantom/MetaMask (браузер)</b> или <b>QR (WalletConnect)</b>.
+    DApp считает <span class="mono">keccak256(file)</span>, загружает файл и metadata в <b>локальный IPFS</b> (Kubo) или <b>Web3.Storage</b>, и вызывает <span class="mono">anchor</span> на контракте.
+  </p>
 
-  <div class="warn"><b>ВАЖНО:</b> Ниже будет сгенерирован <b>Полный форензик-хэш (CreatorProofHash)</b>. Сохраните его в надёжном месте. В NFT и метаданные записывается только <b>обрезанный</b> хэш. Потеряете полный хэш — потеряете рычаги доказывания авторства.</div>
+  <div class="warn"><b>ВАЖНО:</b> Ниже будет сгенерирован <b>полный форензик-хэш (CreatorProofHash)</b>. Сохраните его!
+    В NFT/метаданные записывается только <b>обрезанный</b> хэш. Потеряете полный — потеряете рычаги доказывания авторства.
+  </div>
 
   <h3>1) Подключение кошелька</h3>
   <div class="row" style="margin-bottom:10px">
@@ -66,12 +73,12 @@
   </div>
   <div class="row" style="margin-bottom:10px">
     <input type="text" id="userSalt" placeholder="Секретное слово/фраза (идёт в хэш, опционально)"/>
-    <input type="number" id="truncateN" min="8" max="62" step="2" value="16" placeholder="Длина обрезанного хэша (hex символов)"/>
+    <input type="number" id="truncateN" min="8" max="62" step="2" value="16" placeholder="Длина обрезанного хэша (hex)"/>
   </div>
 
   <div class="warn" id="fullHashBox" style="display:none">
     <div><b>Полный CreatorProofHash:</b> <span class="mono" id="fullHash">—</span></div>
-    <div style="margin-top:4px">Сохраните этот хэш! В NFT попадёт только обрезанный: <span class="mono" id="truncPreview">—</span></div>
+    <div style="margin-top:4px">В NFT попадёт только: <span class="mono" id="truncPreview">—</span></div>
   </div>
 
   <div class="row" style="margin-bottom:8px">
@@ -91,12 +98,11 @@
 
 <script>
 (function(){
-  // ===== Настройки =====
+  // ======= Константы =======
   const CONTRACT_ADDRESS = "0x652Aec14a474dEb389574955d234C742D1936bE5";
-  const WC_PROJECT_ID    = "5a95e16a786fd5c436a5b7064b09a63c"; // ← вставь свой projectId для QR
+  const WC_PROJECT_ID    = "5a95e16a786fd5c436a5b7064b09a63c"; // ← ВСТАВЬ СВОЙ projectId
   const BASE_SEPOLIA = {
-    chainId: 84532,
-    hex: "0x14A34",
+    chainId: 84532, hex: "0x14A34",
     name: "Base Sepolia",
     rpcUrl: "https://sepolia.base.org",
     explorer: "https://sepolia.basescan.org"
@@ -105,24 +111,38 @@
     "function anchor(bytes32 docHash, string fileCID, string tokenURI) external returns (uint256)",
     "function tokenCounter() view returns (uint256)"
   ];
+
   const $  =(id)=>document.getElementById(id);
   const log=(m)=>{ const el=$("log"); el.textContent+=(m+"\\n"); el.scrollTop=el.scrollHeight; };
   const setKV=(k,v)=>$(k).textContent=v;
+
   $("basescan").href = `${BASE_SEPOLIA.explorer}/address/${CONTRACT_ADDRESS}`;
   $("caddr").textContent = CONTRACT_ADDRESS;
 
-  // ===== Состояние провайдеров (кошелёк) =====
-  let providerType = null;          // 'injected' | 'walletconnect'
-  let ethProv = null;               // EIP-1193
+  // ======= Провайдеры =======
+  let providerType = null; // 'injected' | 'walletconnect'
+  let ethProv = null;      // EIP-1193
   let ethersProvider = null, signer = null, account = null;
 
-  // Показ/скрытие поля токена Web3.Storage
+  // Показ/скрытие токена Web3.Storage
   $("storage").addEventListener("change", ()=>{
-    const v = $("storage").value;
-    $("w3sRow").style.display = (v==="web3") ? "grid" : "none";
+    $("w3sRow").style.display = ($("storage").value === "web3") ? "grid" : "none";
   });
 
-  // ===== 1) Подключение: браузерный кошелёк =====
+  // ======= Загрузка WC UMD (локально + CDN фолбэк) =======
+  async function ensureWalletConnectUMD() {
+    if (window.WalletConnectEthereumProvider || window.EthereumProvider) return;
+    const loadScript = (src) => new Promise((res, rej) => {
+      const s = document.createElement('script'); s.src = src;
+      s.onload = res; s.onerror = () => rej(new Error('Failed '+src));
+      document.head.appendChild(s);
+    });
+    try { await loadScript('/wc/index.umd.js'); } catch(_) {}
+    if (window.WalletConnectEthereumProvider || window.EthereumProvider) return;
+    try { await loadScript('https://unpkg.com/@walletconnect/ethereum-provider@2.21.8/dist/index.umd.js'); } catch(e){ console.error(e); }
+  }
+
+  // ======= Подключение: браузерный =======
   async function connectInjected(){
     if (!window.ethereum) { alert("Браузерный кошелёк не найден. Установите Phantom (Enable Ethereum) или MetaMask."); return; }
     ethProv = window.ethereum; providerType='injected';
@@ -131,18 +151,18 @@
     signer = await ethersProvider.getSigner();
     account = await signer.getAddress();
     const net = await ethersProvider.getNetwork();
-    setKV("addr", account);
-    setKV("net", `${net.name || 'EVM'} (${Number(net.chainId)})`);
+    setKV("addr", account); setKV("net", `${net.name || 'EVM'} (${Number(net.chainId)})`);
     $("who").style.display="grid";
     log("✓ Подключено расширение: "+(ethProv.isPhantom?"Phantom":ethProv.isMetaMask?"MetaMask":"EVM wallet"));
     await ensureBaseSepolia();
   }
 
-  // ===== 2) Подключение: QR (WalletConnect) =====
+  // ======= Подключение: QR (WalletConnect) =======
   async function connectQR(){
+    await ensureWalletConnectUMD();
     const WCGlobal = window.WalletConnectEthereumProvider || window.EthereumProvider;
-    if (!WCGlobal) { alert("QR недоступен: не найден /wc/index.umd.js"); log("❌ QR: локальный WalletConnect UMD не найден."); return; }
-    if (!WC_PROJECT_ID || WC_PROJECT_ID.includes("PASTE_YOUR")) { alert("Укажи WalletConnect projectId в коде."); return; }
+    if (!WCGlobal) { alert("QR недоступен: не удалось загрузить WalletConnect UMD (локально и через CDN)."); log("❌ QR: UMD не найден."); return; }
+    if (!WC_PROJECT_ID || WC_PROJECT_ID.includes("PASTE_YOUR")) { alert("Укажи WalletConnect projectId в коде (WC_PROJECT_ID)."); return; }
     const EthereumProvider = WCGlobal.default || WCGlobal;
     ethProv = await EthereumProvider.init({
       projectId: WC_PROJECT_ID,
@@ -159,13 +179,13 @@
     const accs = await ethProv.request({method:"eth_accounts"});
     account = accs?.[0] || (await signer.getAddress());
     const net = await ethersProvider.getNetwork();
-    setKV("addr", account);
-    setKV("net", `${net.name || 'Base Sepolia'} (${Number(net.chainId)})`);
+    setKV("addr", account); setKV("net", `${net.name || 'Base Sepolia'} (${Number(net.chainId)})`);
     $("who").style.display="grid";
     log("✓ Подключено через WalletConnect (QR): "+account);
     await ensureBaseSepolia();
   }
 
+  // ======= Сеть Base Sepolia =======
   async function ensureBaseSepolia(){
     if (!ethProv) { alert("Сначала подключите кошелёк."); return; }
     const net = await (new ethers.BrowserProvider(ethProv)).getNetwork();
@@ -186,7 +206,7 @@
     log("✓ Сеть: Base Sepolia");
   }
 
-  // ======== Форензик-метрики и хэши ========
+  // ======= Форензик-метрики =======
   const vowelsRe = /[AEIOUYАЕЁИОУЫЭЮЯaeiouyаеёиоуыэюя]/u;
   function computeStats(txt){
     const letters = txt.match(/\p{L}/gu) || [];
@@ -213,7 +233,6 @@
     return { totalLetters: letters.length, totalWords: words.length, vowels, consonants, spaces,
       punctuationTotal: punct, dots: points, commas, uppercase: upper, lowercase: lower, freqInitialLetter: freqInit };
   }
-
   function nowWithHiRes(){
     const iso = new Date().toISOString();
     const perf = (typeof performance!=="undefined" && performance.now) ? performance.now() : Math.random()*1e3;
@@ -221,73 +240,51 @@
     const nonce = crypto.getRandomValues(new Uint32Array(2));
     return { iso, micro, nonce: Array.from(nonce) };
   }
-
   const keccakHex = (u8)=>ethers.keccak256(u8);
   async function fileToUint8(file){ const buf = await file.arrayBuffer(); return new Uint8Array(buf); }
 
-  // ===== Проверка доступности локального IPFS и ретраи для Web3.Storage =====
+  // ======= Проверка Local IPFS + Web3.Storage ретраи =======
   async function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
-
   async function checkLocalIpfsReachable(apiBase){
-    try {
-      const u = apiBase.replace(/\/+$/, '') + "/version";
-      const res = await fetch(u, { method:"POST", headers:{ "Accept":"application/json" } });
-      return res.ok;
-    } catch (e) { return false; }
+    try { const res = await fetch(apiBase.replace(/\/+$/,'')+"/version",{method:"POST"}); return res.ok; }
+    catch { return false; }
   }
-
-  async function uploadWeb3StorageWithRetry(token, blob, maxRetries = 3){
+  async function uploadWeb3StorageWithRetry(token, blob, maxRetries = 5){
     if(!token) throw new Error("Укажите Web3.Storage токен");
     let attempt = 0, lastErr;
     while (attempt <= maxRetries){
       try{
-        const res = await fetch("https://api.web3.storage/upload", {
-          method:"POST", headers:{ Authorization:`Bearer ${token}` }, body: blob
-        });
-        if (res.status === 401 || res.status === 403) throw new Error("Web3.Storage unauthorized (проверь токен)");
-        if (!res.ok) {
-          if (res.status === 503 && attempt < maxRetries){
-            attempt++; await sleep(800 * attempt); continue;
-          }
+        const res = await fetch("https://api.web3.storage/upload",{method:"POST",headers:{Authorization:`Bearer ${token}`},body: blob});
+        if (res.status===401||res.status===403) throw new Error("Web3.Storage unauthorized (проверь токен)");
+        if (!res.ok){
+          if ((res.status===429||res.status===503) && attempt<maxRetries){ attempt++; await sleep(1000*attempt); continue; }
           throw new Error(`Web3.Storage error: ${res.status} ${res.statusText}`);
         }
         const j = await res.json();
         if (!j?.cid) throw new Error("Web3.Storage: пустой ответ");
         return j.cid;
-      }catch(e){ lastErr=e; if (String(e).includes("Failed to fetch") && attempt < maxRetries){ attempt++; await sleep(800*attempt); continue; } break; }
+      }catch(e){ lastErr=e; if (String(e).includes("Failed to fetch") && attempt<maxRetries){ attempt++; await sleep(1000*attempt); continue; } break; }
     }
     throw lastErr || new Error("Web3.Storage: не удалось загрузить");
   }
-
   async function ipfsAddLocal(apiBase, blob){
     const reachable = await checkLocalIpfsReachable(apiBase);
     if (!reachable) throw new Error("Local IPFS недоступен из браузера (127.0.0.1:5001). Открой сайт на той же машине, сделай SSH-туннель или выбери Web3.Storage.");
     const u = apiBase.replace(/\/+$/,'') + "/add?pin=true&wrap-with-directory=false&progress=false";
-    const fd = new FormData();
-    fd.append("file", blob, (blob && blob.name) ? blob.name : "file");
+    const fd = new FormData(); fd.append("file", blob, blob?.name || "file");
     const res = await fetch(u, { method:"POST", body: fd });
     if (!res.ok) throw new Error(`IPFS local error: ${res.status} ${res.statusText}`);
-    const text = await res.text();
-    const lines = text.trim().split(/\r?\n/);
-    const last = JSON.parse(lines[lines.length-1]);
-    if (!last?.Hash) throw new Error("IPFS local: CID не получен");
-    return last.Hash;
+    const text = await res.text(); const lines = text.trim().split(/\r?\n/); const last = JSON.parse(lines[lines.length-1]);
+    if (!last?.Hash) throw new Error("IPFS local: CID не получен"); return last.Hash;
   }
-
   async function uploadFile(storageKind, ipfsApi, w3sToken, blob){
     if (storageKind === "ipfs-local"){
       try { return await ipfsAddLocal(ipfsApi, blob); }
-      catch (e){
-        log("⚠️ Local IPFS недоступен: " + (e.message || e));
-        if (w3sToken){ log("⤴️ Фолбэк на Web3.Storage..."); return await uploadWeb3StorageWithRetry(w3sToken, blob); }
-        throw e;
-      }
-    } else {
-      return await uploadWeb3StorageWithRetry(w3sToken, blob);
-    }
+      catch (e){ log("⚠️ Local IPFS недоступен: "+(e.message||e)); if (w3sToken){ log("⤴️ Фолбэк на Web3.Storage..."); return await uploadWeb3StorageWithRetry(w3sToken, blob); } throw e; }
+    } else { return await uploadWeb3StorageWithRetry(w3sToken, blob); }
   }
 
-  // ===== Основной флоу =====
+  // ======= Основной поток =======
   async function anchorAndMint(){
     try{
       if (!signer) { alert("Подключите кошелёк (браузер/QR)."); return; }
@@ -311,19 +308,10 @@
       let text=""; try { text = new TextDecoder("utf-8",{fatal:false}).decode(fileU8); } catch {}
       const stats = computeStats(text);
       const ts = nowWithHiRes();
-
-      const forensicPayload = {
-        version: 1, fileName: f.name, fileSize: f.size,
-        timeISO: ts.iso, timeMicro: ts.micro, nonce: ts.nonce,
-        userSalt, stats
-      };
-      const forensicStr = JSON.stringify(forensicPayload);
-      const fullHash = keccakHex(ethers.toUtf8Bytes(forensicStr));
+      const forensicPayload = { version:1, fileName:f.name, fileSize:f.size, timeISO:ts.iso, timeMicro:ts.micro, nonce:ts.nonce, userSalt, stats };
+      const fullHash = keccakHex(ethers.toUtf8Bytes(JSON.stringify(forensicPayload)));
       const truncated = "0x" + fullHash.slice(2, 2+truncateN);
-
-      $("fullHashBox").style.display = "block";
-      $("fullHash").textContent = fullHash;
-      $("truncPreview").textContent = truncated;
+      $("fullHashBox").style.display="block"; $("fullHash").textContent=fullHash; $("truncPreview").textContent=truncated;
       log("🧪 CreatorProofHash (full): "+fullHash);
       log("✂️ truncated("+truncateN+"): "+truncated);
       log("⚠️ Сохраните полный CreatorProofHash — он нигде не публикуется!");
@@ -362,16 +350,16 @@
     }catch(e){ console.error(e); log("❌ "+(e.message||e)); alert(e.message||e); }
   }
 
-  // ===== Кнопки =====
+  // ======= Кнопки =======
   $("btnConnectInjected").onclick = connectInjected;
   $("btnConnectQR").onclick       = connectQR;
   $("btnEnsureBase").onclick      = ensureBaseSepolia;
   $("btnGo").onclick              = anchorAndMint;
   $("btnClear").onclick           = ()=>{ $("log").textContent=""; $("fullHashBox").style.display="none"; };
 
-  // Подсказки при старте
-  log("ℹ️ Хранилище: по умолчанию Local IPFS (http://127.0.0.1:5001/api/v0). Если браузер не видит локальный API — переключитесь на Web3.Storage.");
-  log("ℹ️ Для QR-подключения подставьте WalletConnect projectId в WC_PROJECT_ID и добавьте https://did.run.place в Allowlist проекта.");
+  // ======= Подсказки при старте =======
+  log("ℹ️ Хранилище: по умолчанию Local IPFS (http://127.0.0.1:5001/api/v0). Убедитесь, что Docker Kubo запущен и разрешает CORS для вашего домена.");
+  log("ℹ️ Для QR-подключения подставьте ваш WalletConnect projectId в WC_PROJECT_ID и добавьте https://did.run.place в Allowlist проекта.");
 })();
 </script>
 </body>
