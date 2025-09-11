@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>DID Anchor dApp · Base Sepolia · QR (WalletConnect)</title>
 <style>
   :root{--bg:#0b0d10;--card:#141820;--muted:#8a94a7}
@@ -20,8 +20,6 @@
 </style>
 <!-- Ethers v6 -->
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js" crossorigin="anonymous"></script>
-<!-- WalletConnect v2 Ethereum Provider (UMD с QR-модалкой) -->
-<script src="https://unpkg.com/@walletconnect/ethereum-provider@2/dist/index.umd.js"></script>
 </head>
 <body>
 <div class="wrap"><div class="card">
@@ -68,7 +66,7 @@
 (async function(){
   // ==== НАСТРОЙКИ ====
   const CONTRACT_ADDRESS = "0x652Aec14a474dEb389574955d234C742D1936bE5";
-  const WC_PROJECT_ID    = "5a95e16a786fd5c436a5b7064b09a63c"; // <— ВСТАВЬ СВОЙ projectId с https://cloud.walletconnect.com
+  const WC_PROJECT_ID    = "5a95e16a786fd5c436a5b7064b09a63c"; // ← вставь сюда свой projectId
   const BASE_SEPOLIA = {
     chainId: 84532,
     hex: "0x14A34",
@@ -87,37 +85,58 @@
   $("basescan").href = `${BASE_SEPOLIA.explorer}/address/${CONTRACT_ADDRESS}`;
   $("caddr").textContent = CONTRACT_ADDRESS;
 
-  // ==== Глобальный контекст подключения ====
-  let wcProvider = null;          // EIP-1193 провайдер от WalletConnect
-  let ethersProvider = null;      // ethers.BrowserProvider обертка
+  // ==== Надёжная загрузка UMD-бандла провайдера ====
+  function loadScript(src){
+    return new Promise((resolve, reject)=>{
+      const s = document.createElement('script');
+      s.src = src; s.async = true; s.crossOrigin = 'anonymous';
+      s.onload = ()=>resolve();
+      s.onerror = ()=>reject(new Error('script load failed: '+src));
+      document.head.appendChild(s);
+    });
+  }
+
+  // пробуем jsDelivr (min), затем резервный unpkg
+  try {
+    await loadScript("https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2/dist/index.umd.min.js");
+  } catch (e) {
+    log("⚠️ jsDelivr не загрузился, пробую unpkg…");
+    await loadScript("https://unpkg.com/@walletconnect/ethereum-provider@2/dist/index.umd.js");
+  }
+
+  // получаем класс провайдера из глобала
+  const WCGlobal = window.WalletConnectEthereumProvider;
+  const EthereumProvider = WCGlobal && (WCGlobal.default || WCGlobal);
+  if (!EthereumProvider) {
+    log("❌ WalletConnect UMD не найден в window.WalletConnectEthereumProvider");
+    alert("Не удалось загрузить WalletConnect Ethereum Provider (проверь CDN/блокировки).");
+    return;
+  }
+
+  // ==== Глобальный контекст ====
+  let wcProvider = null;
+  let ethersProvider = null;
   let signer = null;
   let account = null;
 
-  // Создать/инициализировать WalletConnect провайдер (покажет QR при enable)
   async function createWCProvider() {
     if (!WC_PROJECT_ID || WC_PROJECT_ID.includes("PASTE_YOUR")) {
-      throw new Error("Не указан WalletConnect projectId. Получите его на cloud.walletconnect.com и вставьте в константу WC_PROJECT_ID.");
+      throw new Error("Не указан WalletConnect projectId. Получите его на cloud.walletconnect.com и вставьте в код.");
     }
-    const EthereumProvider = window.WalletConnectEthereumProvider?.default || window.WalletConnectEthereumProvider;
-    if (!EthereumProvider) throw new Error("Не удалось загрузить WalletConnect Ethereum Provider (проверьте CDN-скрипт).");
-
-    // chains — это CAIP chain ids (EVM) по номерам. Для Base Sepolia — 84532.
     wcProvider = await EthereumProvider.init({
       projectId: WC_PROJECT_ID,
       chains: [BASE_SEPOLIA.chainId],
       optionalChains: [BASE_SEPOLIA.chainId],
-      showQrModal: true,
       rpcMap: { [BASE_SEPOLIA.chainId]: BASE_SEPOLIA.rpcUrl },
-      // Дополнительно можно указать metadata dApp:
+      showQrModal: true,
       metadata: {
         name: "DID Anchor dApp",
         description: "Anchor whitepaper & mint NFT on Base Sepolia",
         url: window.location.origin,
-        icons: ["https://avatars.githubusercontent.com/u/6250754?s=200&v=4"]
+        icons: ["https://did.run.place/favicon.ico"]
       }
     });
 
-    // Обновляем адрес/сеть по событиям
     wcProvider.on("accountsChanged", async (accs) => {
       account = accs?.[0] || null;
       setKV("addr", account || "—");
@@ -138,21 +157,20 @@
   async function connectByQR(){
     try {
       if (!wcProvider) await createWCProvider();
-      // Откроет QR-модалку и установит сессию
-      await wcProvider.enable();
+      await wcProvider.enable(); // показывает QR и ждёт подключение
 
       ethersProvider = new ethers.BrowserProvider(wcProvider);
       signer = await ethersProvider.getSigner();
-      const net = await ethersProvider.getNetwork();
+
       const accs = await wcProvider.request({ method: "eth_accounts" });
       account = accs?.[0] || (await signer.getAddress());
+      const net = await ethersProvider.getNetwork();
 
       setKV("addr", account);
       setKV("net", `${net.name || "Base Sepolia"} (${Number(net.chainId)})`);
       $("who").style.display = "grid";
       log("✓ Подключено через WalletConnect: " + account);
 
-      // если вдруг сеть не та — попробуем переключить
       await ensureBaseSepolia();
     } catch (e) {
       console.error(e);
@@ -161,7 +179,6 @@
     }
   }
 
-  // Гарантированно на Base Sepolia
   async function ensureBaseSepolia(){
     if (!wcProvider) throw new Error("Сначала подключите кошелёк через QR.");
     const net = await (new ethers.BrowserProvider(wcProvider)).getNetwork();
@@ -206,7 +223,7 @@
   }
 
   async function anchorAndMint(){
-    try {
+    try{
       if (!signer) await connectByQR();
       await ensureBaseSepolia();
 
@@ -215,12 +232,10 @@
       const token = $("w3stoken").value.trim();
       if(!f) throw new Error("Выберите файл");
 
-      // keccak256(file)
       const buf = new Uint8Array(await f.arrayBuffer());
       const docHash = ethers.keccak256(buf);
       log("🔒 docHash: "+docHash);
 
-      // IPFS
       const fileCID = await uploadWeb3Storage(token, f);
       log("📄 File CID: "+fileCID);
 
@@ -237,7 +252,6 @@
       const tokenURI = `ipfs://${metaCID}`;
       log("🧾 Metadata CID: "+metaCID+"\n🔗 tokenURI: "+tokenURI);
 
-      // Контракт
       const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
       const tx = await contract.anchor(docHash, fileCID, tokenURI);
       $("basescan").href = `${BASE_SEPOLIA.explorer}/tx/${tx.hash}`;
@@ -263,7 +277,7 @@
   document.getElementById("btnClear").onclick = ()=>{ $("log").textContent=""; };
 
   // Подсказка
-  log("ℹ️ Для подключения нужен WalletConnect projectId в коде (WC_PROJECT_ID). Мобильный Phantom/MetaMask отсканирует QR и подключится к Base Sepolia.");
+  log("ℹ️ Вставьте ваш WalletConnect projectId в код (WC_PROJECT_ID). Затем кнопку «Подключить через QR» — телефон Phantom/MetaMask отсканирует QR и подключится к Base Sepolia.");
 })();
 </script>
 </body>
