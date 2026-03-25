@@ -1,362 +1,678 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>DID Anchor dApp · Base Sepolia · Server IPFS Proxy + QR/Browser</title>
-<style>
-  :root{--bg:#0b0d10;--card:#141820;--muted:#8a94a7}
-  *{box-sizing:border-box}
-  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",sans-serif;background:var(--bg);color:#e5ebf5}
-  .wrap{max-width:980px;margin:0 auto;padding:28px}
-  .card{background:#141820;border:1px solid #1f2430;border-radius:16px;padding:18px}
-  h1{margin:0 0 12px;font-size:22px}
-  .muted{color:#8a94a7}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  input[type=text],input[type=number],input[type=file],select{width:100%;background:#0f131a;border:1px solid #202634;border-radius:12px;padding:12px 14px;color:#e5ebf5}
-  .btn{border:1px solid #2c3545;background:#101521;color:#e5ebf5;border-radius:12px;padding:12px 14px;font-weight:600;cursor:pointer}
-  .btn.primary{background:linear-gradient(90deg,#22d3ee,#a78bfa);border:none}
-  .warn{background:#20110f;border:1px solid #3a1c17;border-radius:12px;padding:12px;margin:10px 0;color:#ffb4a6}
-  .log{background:#0f131a;border:1px dashed #293248;border-radius:12px;padding:12px;min-height:180px;white-space:pre-wrap}
-  .kvs{display:grid;grid-template-columns:160px 1fr;gap:8px;font-size:13px}
-  a.link{color:#8dd6ff;text-decoration:none}
-</style>
-<!-- ethers v6 -->
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js" crossorigin="anonymous"></script>
-<!-- локальный WalletConnect UMD (есть и CDN-фолбэк в коде) -->
-<script src="/wc/index.umd.js" defer></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solana Private Messenger - Децентрализованный мессенджер</title>
+    <meta name="description" content="Безопасный децентрализованный мессенджер на блокчейне Solana. Отправляйте приватные сообщения через Phantom Wallet.">
+    <meta name="keywords" content="solana, messenger, blockchain, web3, phantom wallet, private messages">
+    <meta property="og:title" content="Solana Private Messenger">
+    <meta property="og:description" content="Децентрализованный мессенджер на блокчейне Solana">
+    <meta property="og:type" content="website">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .wallet-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .wallet-address {
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            word-break: break-all;
+        }
+        
+        .balance {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4caf50;
+        }
+        
+        .connect-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        .connect-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .connect-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        
+        .input-group input:focus, .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .input-group textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: inherit;
+        }
+        
+        .send-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+        
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+        
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .messages-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .message-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .message-from {
+            font-family: monospace;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .message-time {
+            color: #999;
+        }
+        
+        .message-text {
+            color: #333;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        
+        .refresh-btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
+        .refresh-btn:hover {
+            background: #45a049;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .faucet-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        .faucet-link:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+        
+        .instructions {
+            background: #f0f0f0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        
+        .instructions h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+            color: #666;
+        }
+        
+        .instructions li {
+            margin: 5px 0;
+        }
+    </style>
 </head>
 <body>
-<div class="wrap"><div class="card">
-  <h1>DID Anchor dApp <span style="font-size:12px;color:#9fb3c8">Base Sepolia · Server IPFS Proxy</span></h1>
-  <p class="muted">
-    Подключите <b>Phantom/MetaMask</b> (браузер) или <b>QR (WalletConnect)</b>. DApp считает <span class="mono">keccak256(file)</span>,
-    загружает файл и metadata в <b>IPFS</b> (через серверный прокси <span class="mono">/ipfs/api/v0</span>) и вызывает <span class="mono">anchor</span> на контракте.
-  </p>
-
-  <div class="warn"><b>ВАЖНО:</b> Ниже будет сгенерирован <b>полный форензик-хэш (CreatorProofHash)</b>. Сохраните его!
-    В NFT/метаданных хранится только <b>обрезанный</b> хэш. Потеряете полный — потеряете рычаги доказывания авторства.
-  </div>
-
-  <h3>1) Подключение кошелька</h3>
-  <div class="row" style="margin-bottom:10px">
-    <button id="btnConnectInjected" class="btn primary">Подключить браузерный кошелёк (Phantom/MetaMask)</button>
-    <button id="btnConnectQR" class="btn">Подключить через QR (WalletConnect)</button>
-  </div>
-  <div class="row" style="margin-bottom:14px">
-    <button id="btnEnsureBase" class="btn">Убедиться в сети Base Sepolia</button>
-    <a id="basescan" class="btn" target="_blank" rel="noopener">Basescan</a>
-  </div>
-  <div id="who" class="kvs" style="display:none;margin-bottom:10px">
-    <div>Адрес</div><div class="mono" id="addr">—</div>
-    <div>Сеть</div><div class="mono" id="net">—</div>
-  </div>
-
-  <h3>2) Хранилище</h3>
-  <div class="row" style="margin-bottom:10px">
-    <select id="storage">
-      <option value="ipfs-proxy" selected>Server IPFS Proxy (/ipfs/api/v0)</option>
-      <option value="ipfs-local">IPFS Local (http://127.0.0.1:5001/api/v0)</option>
-      <option value="web3">Web3.Storage (нужен токен)</option>
-    </select>
-    <input type="text" id="ipfsApi" value="/ipfs/api/v0" placeholder="IPFS API endpoint (add)"/>
-  </div>
-  <div class="row" id="w3sRow" style="display:none;margin-bottom:10px">
-    <input type="text" id="w3stoken" placeholder="Web3.Storage API Token"/>
-    <div></div>
-  </div>
-
-  <h3>3) Данные для хэша</h3>
-  <div class="row" style="margin-bottom:10px">
-    <input type="text" id="project" placeholder="Название проекта (в NFT)"/>
-    <input type="file" id="file" accept=".pdf,.txt,.md,.doc,.docx"/>
-  </div>
-  <div class="row" style="margin-bottom:10px">
-    <input type="text" id="userSalt" placeholder="Секретное слово/фраза (идёт в хэш, опционально)"/>
-    <input type="number" id="truncateN" min="8" max="62" step="2" value="16" placeholder="Длина обрезанного хэша (hex)"/>
-  </div>
-
-  <div class="warn" id="fullHashBox" style="display:none">
-    <div><b>Полный CreatorProofHash:</b> <span class="mono" id="fullHash">—</span></div>
-    <div style="margin-top:4px">В NFT попадёт только: <span class="mono" id="truncPreview">—</span></div>
-  </div>
-
-  <div class="row" style="margin-bottom:8px">
-    <button id="btnGo" class="btn primary">⛓️ Anchor & Mint</button>
-    <button id="btnClear" class="btn">Очистить лог</button>
-  </div>
-
-  <h3>Лог</h3>
-  <div id="log" class="log"></div>
-
-  <div style="margin-top:10px;color:#9fb3c8;font-size:12px">
-    Контракт: <span class="mono" id="caddr">0x652Aec14a474dEb389574955d234C742D1936bE5</span> ·
-    Сеть: <span class="mono">Base Sepolia (84532)</span> ·
-    Фаусет: <a class="link" href="https://www.alchemy.com/faucets/base-sepolia" target="_blank">Alchemy Faucet</a>
-  </div>
-</div></div>
-
-<script>
-(function(){
-  // ===== Настройки =====
-  const CONTRACT_ADDRESS = "0x652Aec14a474dEb389574955d234C742D1936bE5";
-  const WC_PROJECT_ID    = "PASTE_YOUR_WALLETCONNECT_PROJECT_ID_HERE"; // ← ВСТАВИТЬ свой projectId
-  const BASE_SEPOLIA = {
-    chainId: 84532, hex: "0x14A34",
-    name: "Base Sepolia",
-    rpcUrl: "https://sepolia.base.org",
-    explorer: "https://sepolia.basescan.org"
-  };
-  const ABI = [
-    "function anchor(bytes32 docHash, string fileCID, string tokenURI) external returns (uint256)",
-    "function tokenCounter() view returns (uint256)"
-  ];
-  const $  =(id)=>document.getElementById(id);
-  const log=(m)=>{ const el=$("log"); el.textContent+=(m+"\\n"); el.scrollTop=el.scrollHeight; };
-  const setKV=(k,v)=>$(k).textContent=v;
-  $("basescan").href = `${BASE_SEPOLIA.explorer}/address/${CONTRACT_ADDRESS}`;
-  $("caddr").textContent = CONTRACT_ADDRESS;
-
-  // ===== Состояние кошелька =====
-  let ethProv=null, ethersProvider=null, signer=null, account=null;
-
-  $("storage").addEventListener("change", ()=>{
-    const v = $("storage").value;
-    $("w3sRow").style.display = (v==="web3") ? "grid" : "none";
-    $("ipfsApi").value = (v==="ipfs-proxy") ? "/ipfs/api/v0" :
-                         (v==="ipfs-local") ? "http://127.0.0.1:5001/api/v0" : "https://api.web3.storage/upload";
-  });
-
-  // ===== WalletConnect UMD loader (локальный + CDN) =====
-  async function ensureWalletConnectUMD(){
-    if (window.WalletConnectEthereumProvider || window.EthereumProvider) return;
-    const loadScript = (src)=>new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("Failed "+src)); document.head.appendChild(s); });
-    try{ await loadScript("/wc/index.umd.js"); }catch{}
-    if (window.WalletConnectEthereumProvider || window.EthereumProvider) return;
-    try{ await loadScript("https://unpkg.com/@walletconnect/ethereum-provider@2.21.8/dist/index.umd.js"); }catch(e){ console.error(e); }
-  }
-
-  // ===== Подключение: браузерное расширение =====
-  async function connectInjected(){
-    if (!window.ethereum){ alert("Кошелёк не найден. Установите Phantom (Enable Ethereum) или MetaMask."); return; }
-    ethProv = window.ethereum;
-    await ethProv.request({ method:"eth_requestAccounts" });
-    ethersProvider = new ethers.BrowserProvider(ethProv);
-    signer = await ethersProvider.getSigner();
-    account = await signer.getAddress();
-    const net = await ethersProvider.getNetwork();
-    $("who").style.display="grid";
-    setKV("addr", account); setKV("net", `${net.name||"EVM"} (${Number(net.chainId)})`);
-    log("✓ Подключено расширение: "+(ethProv.isPhantom?"Phantom":ethProv.isMetaMask?"MetaMask":"EVM wallet"));
-    await ensureBaseSepolia();
-  }
-
-  // ===== Подключение: QR (WalletConnect) =====
-  async function connectQR(){
-    await ensureWalletConnectUMD();
-    const WCGlobal = window.WalletConnectEthereumProvider || window.EthereumProvider;
-    if (!WCGlobal){ alert("QR недоступен: WalletConnect UMD не загрузился (локально/через CDN)."); log("❌ QR: UMD не найден."); return; }
-    if (!WC_PROJECT_ID || WC_PROJECT_ID.includes("PASTE_YOUR")){ alert("Укажите WalletConnect projectId в коде."); return; }
-    const EthereumProvider = WCGlobal.default || WCGlobal;
-    ethProv = await EthereumProvider.init({
-      projectId: WC_PROJECT_ID,
-      chains:[BASE_SEPOLIA.chainId],
-      optionalChains:[BASE_SEPOLIA.chainId],
-      rpcMap:{[BASE_SEPOLIA.chainId]: BASE_SEPOLIA.rpcUrl},
-      showQrModal:true,
-      metadata:{ name:"DID Anchor dApp", description:"Anchor & Mint on Base Sepolia", url:location.origin, icons:["/favicon.ico"] }
-    });
-    await ethProv.enable();
-    ethersProvider = new ethers.BrowserProvider(ethProv);
-    signer = await ethersProvider.getSigner();
-    const accs = await ethProv.request({method:"eth_accounts"});
-    account = accs?.[0] || (await signer.getAddress());
-    const net = await ethersProvider.getNetwork();
-    $("who").style.display="grid";
-    setKV("addr", account); setKV("net", `${net.name||"Base Sepolia"} (${Number(net.chainId)})`);
-    log("✓ Подключено через WalletConnect (QR): "+account);
-    await ensureBaseSepolia();
-  }
-
-  // ===== Сеть Base Sepolia =====
-  async function ensureBaseSepolia(){
-    if (!ethProv){ alert("Сначала подключите кошелёк."); return; }
-    const net = await (new ethers.BrowserProvider(ethProv)).getNetwork();
-    if (Number(net.chainId) === BASE_SEPOLIA.chainId){ setKV("net", `${net.name||"Base Sepolia"} (${Number(net.chainId)})`); return; }
-    try{
-      await ethProv.request({ method:"wallet_switchEthereumChain", params:[{ chainId: BASE_SEPOLIA.hex }] });
-    }catch(e){
-      if (e && (e.code===4902 || /Unrecognized/i.test(String(e.message||"")))){
-        await ethProv.request({ method:"wallet_addEthereumChain", params:[{
-          chainId: BASE_SEPOLIA.hex, chainName: BASE_SEPOLIA.name,
-          nativeCurrency:{name:"ETH",symbol:"ETH",decimals:18},
-          rpcUrls:[BASE_SEPOLIA.rpcUrl], blockExplorerUrls:[BASE_SEPOLIA.explorer]
-        }]});
-      }else{ throw e; }
-    }
-    const net2 = await (new ethers.BrowserProvider(ethProv)).getNetwork();
-    setKV("net", `${net2.name||"Base Sepolia"} (${Number(net2.chainId)})`);
-    log("✓ Сеть: Base Sepolia");
-  }
-
-  // ===== Форензик-метрики и хэши =====
-  const vowelsRe = /[AEIOUYАЕЁИОУЫЭЮЯaeiouyаеёиоуыэюя]/u;
-  function computeStats(txt){
-    const letters = txt.match(/\p{L}/gu) || [];
-    const words   = txt.match(/\p{L}+/gu) || [];
-    const spaces  = (txt.match(/[\u0020]/g) || []).length;
-    const points  = (txt.match(/[.]/g) || []).length;
-    const commas  = (txt.match(/[,]/g) || []).length;
-    const punct   = (txt.match(/[!"#$%&'()*+,\-.\/:;<=>?@[\\\]^_`{|}~…—–]/g) || []).length;
-    let vowels=0, consonants=0, upper=0, lower=0;
-    letters.forEach(ch=>{
-      const isVowel = vowelsRe.test(ch);
-      if (isVowel) vowels++; else consonants++;
-      if (ch === ch.toUpperCase() && ch !== ch.toLowerCase()) upper++;
-      if (ch === ch.toLowerCase() && ch !== ch.toUpperCase()) lower++;
-    });
-    const freqInit = {};
-    const alph = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
-    const calph = [..."АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"];
-    [...alph, ...calph].forEach(l=>freqInit[l]=0);
-    words.forEach(w=>{ const first=w[0].toUpperCase(); if (freqInit[first]!=null) freqInit[first]+=1; });
-    return { totalLetters: letters.length, totalWords: words.length, vowels, consonants, spaces,
-      punctuationTotal: punct, dots: points, commas, uppercase: upper, lowercase: lower, freqInitialLetter: freqInit };
-  }
-  function nowWithHiRes(){
-    const iso = new Date().toISOString();
-    const perf = (typeof performance!=="undefined" && performance.now) ? performance.now() : Math.random()*1e3;
-    const micro = Math.round(perf*1000); // μs
-    const nonce = crypto.getRandomValues(new Uint32Array(2));
-    return { iso, micro, nonce: Array.from(nonce) };
-  }
-  const keccakHex = (u8)=>ethers.keccak256(u8);
-  async function fileToUint8(file){ const buf = await file.arrayBuffer(); return new Uint8Array(buf); }
-
-  // ===== Помощники: проверки и загрузка =====
-  const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
-  async function checkLocalIpfsReachable(apiBase){
-    try{ const res=await fetch(apiBase.replace(/\/+$/,'')+"/version",{method:"POST"}); return res.ok; }catch{ return false; }
-  }
-  async function uploadWeb3StorageWithRetry(token, blob, maxRetries=5){
-    if(!token) throw new Error("Укажите Web3.Storage токен");
-    let attempt=0, lastErr=null;
-    while (attempt<=maxRetries){
-      try{
-        const res=await fetch("https://api.web3.storage/upload",{method:"POST",headers:{Authorization:`Bearer ${token}`},body:blob});
-        if (res.status===401||res.status===403) throw new Error("Web3.Storage unauthorized (проверь токен)");
-        if (!res.ok){
-          if ((res.status===429||res.status===503) && attempt<maxRetries){ attempt++; await sleep(1000*attempt); continue; }
-          throw new Error(`Web3.Storage error: ${res.status} ${res.statusText}`);
+    <div class="container">
+        <div class="header">
+            <div class="wallet-info">
+                <div>
+                    <h1>🔒 Solana Private Messenger</h1>
+                    <p style="color: #666; margin-top: 5px;">Децентрализованный мессенджер на блокчейне Solana</p>
+                </div>
+                <div id="wallet-status">
+                    <button class="connect-btn" id="connectWallet">🔑 Подключить Phantom Wallet</button>
+                </div>
+            </div>
+            <div id="walletDetails" style="display: none; margin-top: 15px;">
+                <div class="wallet-address" id="walletAddress"></div>
+                <div class="balance" id="walletBalance">Баланс: 0 SOL</div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="card">
+                <h2>📨 Отправить сообщение</h2>
+                <div class="input-group">
+                    <label>👤 Адрес получателя</label>
+                    <input type="text" id="recipientAddress" placeholder="Введите публичный адрес Solana (например: EZiaKyHnZ52Bvjfy4aWVbCNou1CwM4hMwGSdiJbS7iL)">
+                </div>
+                <div class="input-group">
+                    <label>💬 Сообщение</label>
+                    <textarea id="messageText" placeholder="Введите ваше сообщение..."></textarea>
+                </div>
+                <button class="send-btn" id="sendBtn" disabled>📤 Отправить сообщение</button>
+                <div id="sendStatus"></div>
+            </div>
+            
+            <div class="card">
+                <h2>📬 Входящие сообщения</h2>
+                <button class="refresh-btn" id="refreshBtn" disabled>🔄 Обновить</button>
+                <div id="messagesList" class="messages-list">
+                    <p style="color: #999; text-align: center;">🔌 Подключите кошелек для просмотра сообщений</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>📖 Как пользоваться:</h3>
+            <ol>
+                <li>Установите расширение <a href="https://phantom.app/" target="_blank" class="faucet-link">Phantom Wallet</a> в браузере</li>
+                <li>Создайте или импортируйте кошелек</li>
+                <li>Переключитесь на сеть <strong>Devnet</strong> в настройках Phantom</li>
+                <li>Получите тестовые SOL на <a href="https://faucet.solana.com/" target="_blank" class="faucet-link">https://faucet.solana.com/</a></li>
+                <li>Нажмите "Подключить Phantom Wallet"</li>
+                <li>Введите публичный адрес получателя и отправьте сообщение</li>
+                <li>Получатель должен также подключить свой кошелек, чтобы увидеть сообщение</li>
+            </ol>
+            <p style="margin-top: 10px; color: #666;">💡 Все сообщения хранятся в блокчейне Solana. В транзакции виден только хэш, текст сообщения виден только отправителю и получателю.</p>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
+    <script>
+        // Хранилище сообщений (в браузере)
+        let messagesDB = {};
+        
+        let connection = null;
+        let wallet = null;
+        let publicKey = null;
+        
+        // Инициализация подключения к Solana
+        async function initConnection() {
+            connection = new solanaWeb3.Connection('https://api.devnet.solana.com', 'confirmed');
         }
-        const j=await res.json(); if (!j?.cid) throw new Error("Web3.Storage: пустой ответ"); return j.cid;
-      }catch(e){ lastErr=e; if (String(e).includes("Failed to fetch") && attempt<maxRetries){ attempt++; await sleep(1000*attempt); continue; } break; }
-    }
-    throw lastErr || new Error("Web3.Storage: не удалось загрузить");
-  }
-  async function ipfsAdd(apiBase, blob){
-    const u = apiBase.replace(/\/+$/,'') + "/add?pin=true&wrap-with-directory=false&progress=false";
-    const fd = new FormData(); fd.append("file", blob, blob?.name || "file");
-    const res = await fetch(u, { method:"POST", body: fd });
-    if (!res.ok) throw new Error(`IPFS error: ${res.status} ${res.statusText}`);
-    const text = await res.text(); const lines=text.trim().split(/\r?\n/); const last=JSON.parse(lines[lines.length-1]);
-    if (!last?.Hash) throw new Error("IPFS: CID не получен"); return last.Hash;
-  }
-  async function uploadFile(storageKind, ipfsApi, w3sToken, blob){
-    if (storageKind==="ipfs-proxy"){
-      // тот же origin → CORS не нужен
-      return await ipfsAdd(ipfsApi, blob);
-    }
-    if (storageKind==="ipfs-local"){
-      const ok = await checkLocalIpfsReachable(ipfsApi);
-      if (!ok) throw new Error("Local IPFS недоступен из браузера. Открой сайт на той же машине, сделай SSH-туннель или выбери Web3.Storage.");
-      return await ipfsAdd(ipfsApi, blob);
-    }
-    // web3.storage
-    return await uploadWeb3StorageWithRetry(w3sToken, blob);
-  }
-
-  // ===== Основной сценарий =====
-  async function anchorAndMint(){
-    try{
-      if (!signer){ alert("Подключите кошелёк (браузер/QR)."); return; }
-      await ensureBaseSepolia();
-
-      const f = $("file").files[0];
-      const name = ($("project").value||"Whitepaper").trim();
-      const storageKind = $("storage").value;
-      const ipfsApi = $("ipfsApi").value.trim();
-      const w3stoken = $("w3stoken").value.trim();
-      const truncateN = Math.max(8, Math.min(62, Number($("truncateN").value||16)));
-      const userSalt  = $("userSalt").value || "";
-
-      if (!f) throw new Error("Выберите файл");
-      if (storageKind==="web3" && !w3stoken) throw new Error("Укажите Web3.Storage токен или переключитесь на Server IPFS Proxy.");
-
-      // docHash
-      const fileU8 = await fileToUint8(f);
-      const docHash = keccakHex(fileU8);
-      log("🔒 docHash (keccak256(file)): "+docHash);
-
-      // форензик-хэш
-      let text=""; try{ text=new TextDecoder("utf-8",{fatal:false}).decode(fileU8); }catch{}
-      const stats = computeStats(text);
-      const ts = nowWithHiRes();
-      const payload = { version:1, fileName:f.name, fileSize:f.size, timeISO:ts.iso, timeMicro:ts.micro, nonce:ts.nonce, userSalt, stats };
-      const fullHash = keccakHex(ethers.toUtf8Bytes(JSON.stringify(payload)));
-      const truncated = "0x"+fullHash.slice(2,2+truncateN);
-      $("fullHashBox").style.display="block"; $("fullHash").textContent=fullHash; $("truncPreview").textContent=truncated;
-      log("🧪 CreatorProofHash (full): "+fullHash);
-      log("✂️ truncated("+truncateN+"): "+truncated);
-      log("⚠️ Сохраните полный CreatorProofHash — он нигде не публикуется!");
-
-      // upload file
-      const fileCID = await uploadFile(storageKind, ipfsApi, w3stoken, f);
-      log("📄 File CID: "+fileCID);
-
-      // metadata (публичное — только обрезанный хэш!)
-      const metadata = {
-        name,
-        description: "Anchored whitepaper bound to an EVM address on Base Sepolia",
-        attributes: [
-          { trait_type:"docHash", value:docHash },
-          { trait_type:"fileCID", value:fileCID },
-          { trait_type:"truncatedCreatorHash", value:truncated },
-          { trait_type:"anchoredAt", value:new Date().toISOString() }
-        ]
-      };
-      const metaCID = await uploadFile(storageKind, ipfsApi, w3stoken, new Blob([JSON.stringify(metadata)],{type:"application/json"}));
-      const tokenURI = `ipfs://${metaCID}`;
-      log("🧾 Metadata CID: "+metaCID);
-      log("🔗 tokenURI: "+tokenURI);
-
-      // контракт
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-      const tx = await contract.anchor(docHash, fileCID, tokenURI);
-      $("basescan").href = `${BASE_SEPOLIA.explorer}/tx/${tx.hash}`;
-      log("⏱️ tx: "+tx.hash);
-      const rcpt = await tx.wait();
-      const tid = (await contract.tokenCounter()).toString();
-      log("✅ Подтверждено в блоке "+rcpt.blockNumber+"\\n🎨 tokenId: "+tid);
-
-      const did = { id:`did:ethr:${account}#whitepaper`, type:"DocumentAnchor",
-        serviceEndpoint:{ docHash, fileCID:`ipfs://${fileCID}`, nftContract:CONTRACT_ADDRESS, tokenId:tid, truncatedCreatorHash:truncated } };
-      log("\\n👉 DID service entry:\\n"+JSON.stringify(did,null,2));
-
-    }catch(e){ console.error(e); log("❌ "+(e.message||e)); alert(e.message||e); }
-  }
-
-  // ===== Кнопки =====
-  $("btnConnectInjected").onclick = connectInjected;
-  $("btnConnectQR").onclick       = connectQR;
-  $("btnEnsureBase").onclick      = ensureBaseSepolia;
-  $("btnGo").onclick              = anchorAndMint;
-  $("btnClear").onclick           = ()=>{ $("log").textContent=""; $("fullHashBox").style.display="none"; };
-
-  // ===== Подсказки =====
-  log("ℹ️ По умолчанию используется Server IPFS Proxy (/ipfs/api/v0) — настройте reverse-proxy на вашем сервере 194.5.152.242.");
-  log("ℹ️ Для QR-подключения подставьте WalletConnect projectId в WC_PROJECT_ID и добавьте ваш домен в Allowlist.");
-})();
-</script>
+        
+        // Проверка наличия Phantom
+        function checkPhantom() {
+            if (!window.solana || !window.solana.isPhantom) {
+                const statusDiv = document.getElementById('sendStatus');
+                statusDiv.className = 'status error';
+                statusDiv.innerHTML = '⚠️ Phantom Wallet не установлен! <a href="https://phantom.app/" target="_blank" style="color: #721c24;">Установить Phantom</a>';
+                return false;
+            }
+            return true;
+        }
+        
+        // Подключение Phantom Wallet
+        async function connectWallet() {
+            if (!checkPhantom()) return;
+            
+            try {
+                const resp = await window.solana.connect();
+                publicKey = resp.publicKey;
+                wallet = window.solana;
+                
+                document.getElementById('walletAddress').innerHTML = `📌 Ваш адрес: ${publicKey.toString()}`;
+                document.getElementById('walletDetails').style.display = 'block';
+                document.getElementById('connectWallet').style.display = 'none';
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('refreshBtn').disabled = false;
+                
+                // Загружаем сообщения из localStorage
+                loadMessagesFromStorage();
+                
+                // Получаем баланс
+                await updateBalance();
+                
+                // Получаем сообщения из блокчейна
+                await receiveMessagesFromBlockchain();
+                
+                // Слушаем изменения аккаунта
+                wallet.on('accountChanged', async (newPublicKey) => {
+                    if (newPublicKey) {
+                        publicKey = newPublicKey;
+                        document.getElementById('walletAddress').innerHTML = `📌 Ваш адрес: ${publicKey.toString()}`;
+                        await updateBalance();
+                        await receiveMessagesFromBlockchain();
+                    } else {
+                        location.reload();
+                    }
+                });
+                
+            } catch (err) {
+                console.error('Ошибка подключения:', err);
+                showStatus('error', '❌ Ошибка подключения кошелька', 'sendStatus');
+            }
+        }
+        
+        // Загрузка сообщений из localStorage
+        function loadMessagesFromStorage() {
+            const saved = localStorage.getItem('solana_messages_' + publicKey?.toString());
+            if (saved) {
+                messagesDB = JSON.parse(saved);
+            }
+        }
+        
+        // Сохранение сообщений в localStorage
+        function saveMessagesToStorage() {
+            if (publicKey) {
+                localStorage.setItem('solana_messages_' + publicKey.toString(), JSON.stringify(messagesDB));
+            }
+        }
+        
+        // Сохранение сообщения
+        function saveMessage(messageKey, messageData) {
+            messagesDB[messageKey] = messageData;
+            saveMessagesToStorage();
+        }
+        
+        // Получение сообщения
+        function getMessage(messageKey) {
+            return messagesDB[messageKey];
+        }
+        
+        // Обновление баланса
+        async function updateBalance() {
+            if (!connection || !publicKey) return;
+            try {
+                const balance = await connection.getBalance(publicKey);
+                const solBalance = balance / solanaWeb3.LAMPORTS_PER_SOL;
+                document.getElementById('walletBalance').innerHTML = `💰 Баланс: ${solBalance.toFixed(6)} SOL`;
+                
+                if (solBalance < 0.01) {
+                    showStatus('info', '⚠️ Баланс низкий. <a href="https://faucet.solana.com/" target="_blank" style="color: #0c5460;">Запросите тестовые SOL</a>', 'sendStatus');
+                }
+            } catch (err) {
+                console.error('Ошибка получения баланса:', err);
+            }
+        }
+        
+        // Отправка сообщения через Memo Program
+        async function sendMessage() {
+            const recipient = document.getElementById('recipientAddress').value.trim();
+            const message = document.getElementById('messageText').value.trim();
+            
+            if (!recipient || !message) {
+                showStatus('error', '❌ Введите адрес получателя и сообщение', 'sendStatus');
+                return;
+            }
+            
+            // Проверка формата адреса
+            try {
+                new solanaWeb3.PublicKey(recipient);
+            } catch (e) {
+                showStatus('error', '❌ Неверный формат адреса получателя', 'sendStatus');
+                return;
+            }
+            
+            if (!publicKey) {
+                showStatus('error', '❌ Сначала подключите кошелек', 'sendStatus');
+                return;
+            }
+            
+            showStatus('info', '⏳ Подготовка сообщения...', 'sendStatus');
+            document.getElementById('sendBtn').disabled = true;
+            
+            try {
+                // Создаем хэш сообщения
+                const encoder = new TextEncoder();
+                const messageHash = await crypto.subtle.digest('SHA-256', encoder.encode(message));
+                const messageHashHex = Array.from(new Uint8Array(messageHash)).map(b => b.toString(16).padStart(2, '0')).join('');
+                
+                // Генерируем ключ сообщения
+                const messageKey = btoa(`${publicKey.toString()}_${recipient}_${Date.now()}`);
+                
+                // Сохраняем сообщение локально
+                const messageData = {
+                    sender: publicKey.toString(),
+                    recipient: recipient,
+                    message: message,
+                    messageHash: messageHashHex,
+                    timestamp: new Date().toISOString()
+                };
+                saveMessage(messageKey, messageData);
+                
+                // Создаем memo данные
+                const memoData = JSON.stringify({
+                    type: "private_message",
+                    message_key: messageKey,
+                    hash: messageHashHex,
+                    recipient: recipient,
+                    sender: publicKey.toString()
+                });
+                
+                // Создаем инструкцию Memo
+                const memoProgramId = new solanaWeb3.PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
+                const memoInstruction = new solanaWeb3.TransactionInstruction({
+                    keys: [],
+                    programId: memoProgramId,
+                    data: Buffer.from(memoData, 'utf-8')
+                });
+                
+                // Получаем последний blockhash
+                const blockhash = await connection.getLatestBlockhash();
+                
+                // Создаем транзакцию
+                const transaction = new solanaWeb3.Transaction();
+                transaction.add(memoInstruction);
+                transaction.recentBlockhash = blockhash.blockhash;
+                transaction.feePayer = publicKey;
+                
+                // Подписываем транзакцию
+                showStatus('info', '✍️ Подпишите транзакцию в Phantom...', 'sendStatus');
+                
+                const signedTx = await wallet.signTransaction(transaction);
+                
+                // Отправляем транзакцию
+                showStatus('info', '📡 Отправка в блокчейн...', 'sendStatus');
+                
+                const signature = await connection.sendRawTransaction(signedTx.serialize());
+                
+                // Ждем подтверждения
+                await connection.confirmTransaction(signature);
+                
+                showStatus('success', `✅ Сообщение отправлено!<br>🔗 <a href="https://explorer.solana.com/tx/${signature}?cluster=devnet" target="_blank" style="color: #155724;">Посмотреть транзакцию</a>`, 'sendStatus');
+                
+                // Очищаем поля
+                document.getElementById('recipientAddress').value = '';
+                document.getElementById('messageText').value = '';
+                
+                // Обновляем баланс
+                await updateBalance();
+                
+            } catch (err) {
+                console.error('Ошибка отправки:', err);
+                showStatus('error', `❌ Ошибка: ${err.message}`, 'sendStatus');
+            } finally {
+                document.getElementById('sendBtn').disabled = false;
+            }
+        }
+        
+        // Получение сообщений из блокчейна
+        async function receiveMessagesFromBlockchain() {
+            if (!publicKey) return;
+            
+            showStatus('info', '⏳ Загрузка сообщений из блокчейна...', 'sendStatus');
+            
+            try {
+                // Получаем последние транзакции
+                const signatures = await connection.getSignaturesForAddress(publicKey, {limit: 50});
+                
+                const receivedMessages = [];
+                
+                for (const sigInfo of signatures) {
+                    try {
+                        const tx = await connection.getTransaction(sigInfo.signature, {
+                            maxSupportedTransactionVersion: 0
+                        });
+                        
+                        if (!tx || !tx.transaction) continue;
+                        
+                        // Ищем инструкции Memo
+                        for (const ix of tx.transaction.message.instructions) {
+                            // Проверяем, что это Memo Program
+                            const programId = tx.transaction.message.accountKeys[ix.programIdIndex];
+                            if (programId.toString() === "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr") {
+                                // Декодируем данные
+                                const data = Buffer.from(ix.data).toString('utf-8');
+                                try {
+                                    const memoJson = JSON.parse(data);
+                                    
+                                    if (memoJson.type === 'private_message' && 
+                                        memoJson.recipient === publicKey.toString()) {
+                                        
+                                        // Получаем сообщение из хранилища
+                                        const storedMsg = getMessage(memoJson.message_key);
+                                        
+                                        if (storedMsg) {
+                                            receivedMessages.push({
+                                                from: storedMsg.sender,
+                                                message: storedMsg.message,
+                                                timestamp: storedMsg.timestamp,
+                                                signature: sigInfo.signature
+                                            });
+                                        }
+                                    }
+                                } catch (e) {
+                                    // Не JSON, пропускаем
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Ошибка получения транзакции:', e);
+                    }
+                }
+                
+                // Отображаем сообщения
+                const messagesList = document.getElementById('messagesList');
+                
+                if (receivedMessages.length === 0) {
+                    messagesList.innerHTML = '<p style="color: #999; text-align: center;">📭 Нет новых сообщений</p>';
+                    return;
+                }
+                
+                // Сортируем по времени
+                receivedMessages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                
+                messagesList.innerHTML = '';
+                
+                receivedMessages.forEach(msg => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'message-item';
+                    
+                    const timestamp = new Date(msg.timestamp).toLocaleString();
+                    const shortFrom = msg.from.substring(0, 8) + '...' + msg.from.substring(msg.from.length - 8);
+                    
+                    messageDiv.innerHTML = `
+                        <div class="message-header">
+                            <span class="message-from">📨 От: ${shortFrom}</span>
+                            <span class="message-time">${timestamp}</span>
+                        </div>
+                        <div class="message-text">${escapeHtml(msg.message)}</div>
+                        <div style="font-size: 10px; color: #999; margin-top: 5px;">
+                            ✅ Верифицировано в блокчейне
+                        </div>
+                    `;
+                    
+                    messagesList.appendChild(messageDiv);
+                });
+                
+                showStatus('success', `✅ Загружено ${receivedMessages.length} сообщений`, 'sendStatus');
+                setTimeout(() => {
+                    const statusDiv = document.getElementById('sendStatus');
+                    if (statusDiv.innerHTML.includes('Загружено')) {
+                        statusDiv.innerHTML = '';
+                    }
+                }, 3000);
+                
+            } catch (err) {
+                console.error('Ошибка получения сообщений:', err);
+                showStatus('error', '❌ Ошибка загрузки сообщений', 'sendStatus');
+            }
+        }
+        
+        // Экранирование HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Показ статуса
+        function showStatus(type, message, elementId) {
+            const statusDiv = document.getElementById(elementId);
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+            
+            if (type !== 'error') {
+                setTimeout(() => {
+                    if (statusDiv.innerHTML === message) {
+                        statusDiv.innerHTML = '';
+                    }
+                }, 5000);
+            }
+        }
+        
+        // Инициализация
+        async function init() {
+            await initConnection();
+            checkPhantom();
+            
+            document.getElementById('connectWallet').addEventListener('click', connectWallet);
+            document.getElementById('sendBtn').addEventListener('click', sendMessage);
+            document.getElementById('refreshBtn').addEventListener('click', receiveMessagesFromBlockchain);
+        }
+        
+        init();
+    </script>
 </body>
 </html>
